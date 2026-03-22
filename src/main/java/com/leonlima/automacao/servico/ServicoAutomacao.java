@@ -16,11 +16,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Executa buscas automatizadas em portais de saúde com Selenium.
+ * Executa buscas automatizadas com Selenium.
  *
- * O Selenium controla um browser real — diferente do JSOUP, ele executa
- * JavaScript, aguarda carregamentos dinâmicos e interage com a página
- * exatamente como um usuário faria.
+ * Usa a Wikipedia em português — site público, sem bloqueio de automação,
+ * com conteúdo rico sobre medicamentos para demonstração.
  */
 @Service
 @RequiredArgsConstructor
@@ -37,39 +36,34 @@ public class ServicoAutomacao {
         WebDriver navegador = null;
 
         try {
-            // Cada requisição obtém sua própria instância do Chrome (scope prototype)
             navegador = contexto.getBean(WebDriver.class);
 
             log.info("Buscando '{}' em '{}'", requisicao.getTermo(), requisicao.getSitioAlvo());
 
-            // WebDriverWait: aguarda condições antes de prosseguir
-            // Mais confiável que Thread.sleep() porque espera exatamente até o elemento estar disponível
             WebDriverWait espera = new WebDriverWait(navegador, Duration.ofSeconds(tempoEsperaSegundos));
 
-            navegador.get("https://bula.fiocruz.br/");
-            log.info("Página aberta: {}", navegador.getTitle());
+            // Wikipedia: busca pública sem bloqueio de automação
+            String urlBusca = "https://pt.wikipedia.org/w/index.php?search="
+                    + requisicao.getTermo().replace(" ", "+")
+                    + "&title=Especial%3APesquisar&ns0=1";
 
-            // Localiza o campo de busca — By.cssSelector funciona igual ao querySelector do JavaScript
-            WebElement campoBusca = espera.until(
-                ExpectedConditions.elementToBeClickable(
-                    By.cssSelector("input[type='search'], input[name='q'], input[placeholder*='busca']")
-                )
-            );
+            navegador.get(urlBusca);
+            log.info("Pagina aberta: {}", navegador.getTitle());
 
-            // sendKeys simula o usuário digitando no campo
-            campoBusca.clear();
-            campoBusca.sendKeys(requisicao.getTermo());
-            campoBusca.sendKeys(Keys.ENTER);  // simula a tecla Enter
-
-            // Aguarda os resultados aparecerem antes de tentar extraí-los
-            espera.until(ExpectedConditions.presenceOfAllElementsLocatedBy(
-                By.cssSelector("h2, h3, article, .resultado")
-            ));
+            // Aguarda resultados ou redireciona direto para o artigo
+            try {
+                espera.until(ExpectedConditions.presenceOfAllElementsLocatedBy(
+                    By.cssSelector(".mw-search-result-heading a, #firstHeading, h1")
+                ));
+            } catch (TimeoutException e) {
+                log.warn("Seletor principal nao encontrado, aguardando body");
+                espera.until(ExpectedConditions.presenceOfElementLocated(By.tagName("body")));
+            }
 
             List<BuscaDTO.ItemResultado> resultados = extrairResultados(navegador);
             long tempoExecucao = System.currentTimeMillis() - inicio;
 
-            log.info("Busca concluída — {} resultados em {}ms", resultados.size(), tempoExecucao);
+            log.info("Busca concluida — {} resultados em {}ms", resultados.size(), tempoExecucao);
 
             return BuscaDTO.Resposta.builder()
                     .termo(requisicao.getTermo())
@@ -82,8 +76,8 @@ public class ServicoAutomacao {
                     .build();
 
         } catch (TimeoutException e) {
-            log.warn("Timeout ao aguardar elementos: {}", e.getMessage());
-            return respostaDeErro(requisicao, "Timeout: página demorou para carregar",
+            log.warn("Timeout: {}", e.getMessage());
+            return respostaDeErro(requisicao, "Timeout: pagina demorou para carregar",
                     System.currentTimeMillis() - inicio);
 
         } catch (WebDriverException e) {
@@ -92,8 +86,6 @@ public class ServicoAutomacao {
                     System.currentTimeMillis() - inicio);
 
         } finally {
-            // O navegador DEVE ser fechado sempre — mesmo em caso de exceção
-            // Sem o quit(), o processo do Chrome permanece em memória indefinidamente
             if (navegador != null) {
                 navegador.quit();
                 log.info("Navegador encerrado");
@@ -104,40 +96,69 @@ public class ServicoAutomacao {
     private List<BuscaDTO.ItemResultado> extrairResultados(WebDriver navegador) {
         List<BuscaDTO.ItemResultado> resultados = new ArrayList<>();
 
-        // Tenta diferentes seletores — cada site tem sua própria estrutura HTML
-        List<WebElement> elementos = navegador.findElements(By.cssSelector("h2 a, h3 a"));
-        if (elementos.isEmpty()) elementos = navegador.findElements(By.cssSelector("h2, h3"));
+        // Caso 1: página de resultados de busca da Wikipedia
+        List<WebElement> itensResultado = navegador.findElements(
+            By.cssSelector(".mw-search-result-heading a")
+        );
 
-        int limite = Math.min(elementos.size(), 10);
+        if (!itensResultado.isEmpty()) {
+            log.info("Modo lista de resultados — {} itens", itensResultado.size());
+            int limite = Math.min(itensResultado.size(), 10);
+            for (int i = 0; i < limite; i++) {
+                try {
+                    WebElement el = itensResultado.get(i);
+                    String titulo = el.getText().trim();
+                    String href = el.getAttribute("href");
 
-        for (int i = 0; i < limite; i++) {
-            WebElement el = elementos.get(i);
+                    String descricao = "";
+                    try {
+                        WebElement pai = el.findElement(By.xpath("../../.."));
+                        WebElement snippet = pai.findElement(By.cssSelector(".searchresult"));
+                        descricao = snippet.getText().trim();
+                        if (descricao.length() > 200) descricao = descricao.substring(0, 200) + "...";
+                    } catch (NoSuchElementException ignorado) {}
+
+                    if (!titulo.isEmpty()) {
+                        resultados.add(BuscaDTO.ItemResultado.builder()
+                                .titulo(titulo)
+                                .descricao(descricao)
+                                .url(href != null ? href : "")
+                                .build());
+                    }
+                } catch (StaleElementReferenceException e) {
+                    log.warn("Elemento obsoleto {}", i);
+                }
+            }
+        } else {
+            // Caso 2: redirecionou direto para o artigo
+            log.info("Modo artigo direto — extraindo secoes");
             try {
-                String titulo = el.getText().trim();
-                if (titulo.isEmpty()) continue;
-
-                String href = "";
-                try {
-                    href = el.getAttribute("href") != null
-                        ? el.getAttribute("href")
-                        : el.findElement(By.tagName("a")).getAttribute("href");
-                } catch (NoSuchElementException ignorado) {}
-
-                String descricao = "";
-                try {
-                    WebElement pai = el.findElement(By.xpath(".."));
-                    descricao = pai.findElement(By.cssSelector("p, .descricao")).getText().trim();
-                } catch (NoSuchElementException ignorado) {}
+                String titulo = navegador.findElement(By.cssSelector("#firstHeading, h1")).getText();
+                List<WebElement> paragrafos = navegador.findElements(By.cssSelector("#mw-content-text p"));
+                String descricao = paragrafos.isEmpty() ? "" :
+                    paragrafos.get(0).getText().trim();
+                if (descricao.length() > 300) descricao = descricao.substring(0, 300) + "...";
 
                 resultados.add(BuscaDTO.ItemResultado.builder()
                         .titulo(titulo)
                         .descricao(descricao)
-                        .url(href)
+                        .url(navegador.getCurrentUrl())
                         .build());
 
-            } catch (StaleElementReferenceException e) {
-                // Ocorre quando a página atualiza o DOM enquanto estamos lendo
-                log.warn("Elemento obsoleto ao extrair resultado {}", i);
+                // Adiciona secoes do artigo como resultados
+                List<WebElement> secoes = navegador.findElements(By.cssSelector("h2 .mw-headline, h3 .mw-headline"));
+                for (int i = 0; i < Math.min(secoes.size(), 8); i++) {
+                    String nomeSecao = secoes.get(i).getText().trim();
+                    if (!nomeSecao.isEmpty() && !nomeSecao.equals("Ver também") && !nomeSecao.equals("Referências")) {
+                        resultados.add(BuscaDTO.ItemResultado.builder()
+                                .titulo(titulo + " — " + nomeSecao)
+                                .descricao("Seção do artigo sobre " + titulo)
+                                .url(navegador.getCurrentUrl())
+                                .build());
+                    }
+                }
+            } catch (NoSuchElementException e) {
+                log.warn("Nenhum elemento encontrado na pagina");
             }
         }
 
