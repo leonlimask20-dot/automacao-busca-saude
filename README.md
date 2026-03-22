@@ -1,5 +1,5 @@
 # Automação de Busca em Saúde
-
+![CI](https://github.com/leonlimask20-dot/automacao-busca-saude/actions/workflows/ci.yml/badge.svg)
 Automação de buscas em portais de saúde com Selenium WebDriver integrado ao Spring Boot. A automação é exposta como um serviço REST — qualquer sistema pode chamar a API e receber os resultados como JSON.
 
 ---
