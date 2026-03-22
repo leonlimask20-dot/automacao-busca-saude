@@ -1,0 +1,20 @@
+name: CI — Automação Busca Saúde
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  testes:
+    name: Testes (JUnit 5 + Mockito)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+      - name: Executar testes
+        run: mvn test -B -Dtest="!*IntegrationTest" -Dsurefire.failIfNoSpecifiedTests=false
