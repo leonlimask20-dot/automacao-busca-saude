@@ -16,5 +16,5 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
-      - name: Executar testes
-        run: mvn test -B -Dtest="!*IntegrationTest" -Dsurefire.failIfNoSpecifiedTests=false
+      - name: Executar testes unitários
+        run: mvn test -B
