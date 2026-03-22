@@ -129,6 +129,6 @@ Os testes unitários usam Mockito para simular o WebDriver — sem abrir o Chrom
 
 ## Autor
 
-**Leon Nogueira Lima**
+**LNL**
 GitHub: [@leonlimask20-dot](https://github.com/leonlimask20-dot)
 Email: leonlimask@gmail.com
