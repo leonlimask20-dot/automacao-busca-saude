@@ -1,12 +1,16 @@
-# Automação de Busca em Saúde
+# Health Search Automation
+
 ![CI](https://github.com/leonlimask20-dot/automacao-busca-saude/actions/workflows/ci.yml/badge.svg)
-Automação de buscas em portais de saúde com Selenium WebDriver integrado ao Spring Boot. A automação é exposta como um serviço REST — qualquer sistema pode chamar a API e receber os resultados como JSON.
+
+Automation of searches on health portals with Selenium WebDriver integrated
+into Spring Boot. The automation is exposed as a REST service — any system can
+call the API and receive the results as JSON.
 
 ---
 
-## Tecnologias
+## Tech stack
 
-| Tecnologia | Versão |
+| Technology | Version |
 |---|---|
 | Java | 17 |
 | Spring Boot | 3.2.3 |
@@ -16,36 +20,36 @@ Automação de buscas em portais de saúde com Selenium WebDriver integrado ao S
 
 ---
 
-## Como o Selenium funciona
+## How Selenium works
 
-O Selenium controla um browser real (Chrome) via WebDriver:
+Selenium drives a real browser (Chrome) through the WebDriver:
 
 ```java
-// Abre o Chrome
-WebDriver navegador = new ChromeDriver(opcoes);
+// Open Chrome
+WebDriver browser = new ChromeDriver(options);
 
-// Navega para uma URL
-navegador.get("https://bula.fiocruz.br/");
+// Navigate to a URL
+browser.get("https://bula.fiocruz.br/");
 
-// Localiza o campo de busca com seletor CSS
-WebElement campo = navegador.findElement(By.cssSelector("input[type='search']"));
+// Locate the search field with a CSS selector
+WebElement field = browser.findElement(By.cssSelector("input[type='search']"));
 
-// Simula o usuário digitando e pressionando Enter
-campo.sendKeys("paracetamol");
-campo.sendKeys(Keys.ENTER);
+// Simulate the user typing and pressing Enter
+field.sendKeys("paracetamol");
+field.sendKeys(Keys.ENTER);
 
-// Aguarda os resultados carregarem (espera explícita)
-WebDriverWait espera = new WebDriverWait(navegador, Duration.ofSeconds(15));
-espera.until(ExpectedConditions.presenceOfAllElementsLocatedBy(By.cssSelector("h2")));
+// Wait for the results to load (explicit wait)
+WebDriverWait wait = new WebDriverWait(browser, Duration.ofSeconds(15));
+wait.until(ExpectedConditions.presenceOfAllElementsLocatedBy(By.cssSelector("h2")));
 
-// Extrai os dados
-List<WebElement> resultados = navegador.findElements(By.cssSelector("h2"));
-for (WebElement el : resultados) {
+// Extract the data
+List<WebElement> results = browser.findElements(By.cssSelector("h2"));
+for (WebElement el : results) {
     System.out.println(el.getText());
 }
 
-// Fecha o browser ao final — obrigatório para liberar memória
-navegador.quit();
+// Close the browser at the end — mandatory to free memory
+browser.quit();
 ```
 
 ---
@@ -54,36 +58,36 @@ navegador.quit();
 
 | | JSOUP | Selenium |
 |---|---|---|
-| Como funciona | Parse do HTML estático | Controla browser real |
-| Executa JavaScript | ❌ | ✅ |
-| Velocidade | Muito rápido | Mais lento |
-| Sites estáticos (SSR) | ✅ Ideal | Funciona |
-| SPAs (React, Angular) | ❌ | ✅ Necessário |
+| How it works | Parses static HTML | Drives a real browser |
+| Runs JavaScript | ❌ | ✅ |
+| Speed | Very fast | Slower |
+| Static sites (SSR) | ✅ Ideal | Works |
+| SPAs (React, Angular) | ❌ | ✅ Required |
 
 ---
 
-## Arquitetura
+## Architecture
 
 ```
 src/main/java/com/leonlima/automacao/
 ├── config/      → ConfiguracaoNavegador (Chrome + WebDriverManager)
-├── controller/  → ControladorBusca (endpoint REST)
-├── servico/     → ServicoAutomacao (lógica Selenium)
-├── dto/         → BuscaDTO (requisição e resposta)
+├── controller/  → ControladorBusca (REST endpoint)
+├── servico/     → ServicoAutomacao (Selenium logic)
+├── dto/         → BuscaDTO (request and response)
 └── excecao/     → TratadorDeExcecoes
 ```
 
 ---
 
-## Como executar
+## How to run
 
-Google Chrome deve estar instalado. O WebDriverManager baixa o ChromeDriver automaticamente.
+Google Chrome must be installed. WebDriverManager downloads ChromeDriver automatically.
 
 ```bash
 mvn spring-boot:run
 ```
 
-API disponível em `http://localhost:8085`.
+API available at `http://localhost:8085`.
 
 ---
 
@@ -104,8 +108,8 @@ curl -X POST http://localhost:8085/api/busca \
   "totalResultados": 8,
   "resultados": [
     {
-      "titulo": "Paracetamol 500mg — Bula completa",
-      "descricao": "Analgésico e antitérmico indicado para...",
+      "titulo": "Paracetamol 500mg — Full leaflet",
+      "descricao": "Analgesic and antipyretic indicated for...",
       "url": "https://bula.fiocruz.br/..."
     }
   ],
@@ -117,17 +121,30 @@ curl -X POST http://localhost:8085/api/busca \
 
 ---
 
-## Testes
+## Tests
 
 ```bash
 mvn test
 ```
 
-Os testes unitários usam Mockito para simular o WebDriver — sem abrir o Chrome, sem depender de sites externos.
+The unit tests use Mockito to simulate the WebDriver — without opening Chrome
+and without depending on external sites.
 
 ---
 
-## Autor
+## 🤖 Agent Architecture
+
+This project was built and code-reviewed using a **multi-agent
+context-optimization workflow**: specialized AI agents each audit a single
+slice of the codebase — browser config, automation logic, REST layer, tests —
+within a strict context budget. The approach cuts review time and token cost
+while keeping full traceability of every finding.
+
+Methodology, agent templates and the full playbook: **[leonlim3.gumroad.com](https://leonlim3.gumroad.com)**
+
+---
+
+## Author
 
 **LNL**
 GitHub: [@leonlimask20-dot](https://github.com/leonlimask20-dot)
