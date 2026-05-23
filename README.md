@@ -1,4 +1,4 @@
-# Health Search Automation
+﻿# Health Search Automation
 
 ![CI](https://github.com/leonlimask20-dot/automacao-busca-saude/actions/workflows/ci.yml/badge.svg)
 
@@ -140,7 +140,7 @@ slice of the codebase — browser config, automation logic, REST layer, tests �
 within a strict context budget. The approach cuts review time and token cost
 while keeping full traceability of every finding.
 
-Methodology, agent templates and the full playbook: **[leonlim3.gumroad.com](https://leonlim3.gumroad.com)**
+Methodology, agent templates and the full playbook: **[Stop Burning Context — Claude Code Playbook](https://leonlim3.gumroad.com/l/claude-code-context-playbook)**
 
 ---
 
